@@ -116,7 +116,7 @@ function VoiceChannelTooltip({ channel, isLocked }: VoiceChannelTooltipProps) {
         icon: guild.icon,
         size: 45
     });
-
+    
     const channelIcon = match(channel.type)
         .with(P.union(1, 3), () => {
             return channel.recipients.length >= 2 && channel.icon == null
