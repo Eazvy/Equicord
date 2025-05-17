@@ -52,7 +52,8 @@ function SpeakerIcon(props: IconProps) {
     );
 }
 
-function LockedSpeakerIcon(props: IconProps) {
+
+function LimitedSpeakerIcon(props: IconProps) {
     props.size ??= 16;
 
     return (
@@ -69,6 +70,28 @@ function LockedSpeakerIcon(props: IconProps) {
             >
                 <path fillRule="evenodd" clipRule="evenodd" d="M16 4h.5v-.5a2.5 2.5 0 0 1 5 0V4h.5a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Zm4-.5V4h-2v-.5a1 1 0 1 1 2 0Z" />
                 <path d="M11 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1h-.06a1 1 0 0 1-.74-.32L5.92 17H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h2.92l4.28-4.68a1 1 0 0 1 .74-.32H11ZM20.5 12c-.28 0-.5.22-.52.5a7 7 0 0 1-5.13 6.25c-.48.13-.85.55-.85 1.05v.03c0 .6.52 1.06 1.1.92a9 9 0 0 0 6.89-8.25.48.48 0 0 0-.49-.5h-1ZM16.5 12c-.28 0-.5.23-.54.5a3 3 0 0 1-1.33 2.02c-.35.23-.63.6-.63 1.02v.14c0 .63.59 1.1 1.16.83a5 5 0 0 0 2.82-4.01c.02-.28-.2-.5-.48-.5h-1Z" />
+            </svg>
+        </div>
+    );
+}
+
+
+function LockedSpeakerIcon(props: IconProps) {
+    props.size ??= 16;
+
+    return (
+        <div
+            {...props}
+            role={props.onClick != null ? "button" : undefined}
+            className={classes(cl("speaker"), props.onClick != null ? cl("clickable") : undefined, props.className)}
+        >
+            <svg
+                width={props.size}
+                height={props.size}
+                viewBox="0 0 24 24"
+                fill="none"
+            >
+                <path fill="currentColor" fillRule="evenodd" clipRule="evenodd" d="M6 9h1V6a5 5 0 0 1 10 0v3h1a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-8a3 3 0 0 1 3-3Zm9-3v3H9V6a3 3 0 1 1 6 0Zm-1 8a2 2 0 0 1-1 1.73V18a1 1 0 1 1-2 0v-2.27A2 2 0 1 1 14 14Z"/>
             </svg>
         </div>
     );
@@ -91,7 +114,7 @@ function VoiceChannelTooltip({ channel, isLocked }: VoiceChannelTooltipProps) {
     const guildIcon = guild?.icon == null ? undefined : IconUtils.getGuildIconURL({
         id: guild.id,
         icon: guild.icon,
-        size: 30
+        size: 45
     });
 
     const channelIcon = match(channel.type)
@@ -144,7 +167,7 @@ function VoiceChannelTooltip({ channel, isLocked }: VoiceChannelTooltipProps) {
                 </div>
             </div>
             <div className={cl("vc-members")}>
-                {isLocked ? <LockedSpeakerIcon size={18} /> : <SpeakerIcon size={18} />}
+                {isLocked ? <LockedSpeakerIcon size={18} /> : channel.userLimit > 1 ? <LimitedSpeakerIcon size={18} /> : <SpeakerIcon size={18} />}
                 <UserSummaryItem
                     users={users}
                     renderIcon={false}
@@ -215,10 +238,12 @@ export const VoiceChannelIndicator = ErrorBoundary.wrap(({ userId, isActionButto
                     onClick
                 };
 
-                return isLocked ?
-                    <LockedSpeakerIcon {...iconProps} />
-                    : <SpeakerIcon {...iconProps} />;
-            }}
+                return isLocked
+                    ? <LockedSpeakerIcon {...iconProps} />
+                    : channel.userLimit > 1
+                        ? <LimitedSpeakerIcon {...iconProps} />
+                        : <SpeakerIcon {...iconProps} />;
+                }}
         </Tooltip>
     );
 }, { noop: true });
