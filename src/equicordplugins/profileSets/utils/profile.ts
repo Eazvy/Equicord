@@ -8,7 +8,7 @@ import { getUserSettingLazy } from "@api/UserSettings";
 import { Logger } from "@utils/Logger";
 import { CustomStatus, ProfileEffect, ProfilePreset } from "@vencord/discord-types";
 import { findStoreLazy } from "@webpack";
-import { FluxDispatcher, UserProfileStore, UserStore } from "@webpack/common";
+import { FluxDispatcher, IconUtils, UserProfileStore, UserStore } from "@webpack/common";
 
 const logger = new Logger("ProfilePresets");
 const UserProfileSettingsStore = findStoreLazy("UserProfileSettingsStore");
@@ -140,7 +140,8 @@ export async function getCurrentProfile(guildId?: string): Promise<Omit<ProfileP
         ? pendingChanges.pendingAvatar
         : currentUser.avatar;
 
-    const avatarDataUrl = await processImage(avatarToUse, currentUser.id, "avatar");
+    const avatarDataUrl = await processImage(avatarToUse, currentUser.id, "avatar")
+        || IconUtils.getDefaultAvatarURL(currentUser.id);
 
     const bannerToUse = pendingChanges.pendingBanner !== undefined
         ? pendingChanges.pendingBanner
@@ -167,68 +168,79 @@ export async function getCurrentProfile(guildId?: string): Promise<Omit<ProfileP
     };
 }
 
-export function loadPresetAsPending(preset: ProfilePreset, guildId?: string) {
+function jsonEq(a: any, b: any): boolean {
+    if (a === b) return true;                  
+    if (a == null || b == null) return a == b;    
+    return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function customStatusEq(a: CustomStatus | null | undefined, b: CustomStatus | null | undefined): boolean {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    return a.text === b.text
+        && String(a.emojiId ?? "") === String(b.emojiId ?? "")
+        && a.emojiName === b.emojiName
+        && String(a.expiresAtMs ?? "0") === String(b.expiresAtMs ?? "0");
+}
+
+export async function loadPresetAsPending(preset: ProfilePreset, guildId?: string) {
     try {
-        if (preset.avatarDataUrl) {
+        
+        const current = await getCurrentProfile(guildId);
+
+        if (preset.avatarDataUrl && preset.avatarDataUrl !== current.avatarDataUrl) {
             dispatch("USER_SETTINGS_ACCOUNT_SET_PENDING_AVATAR", { guildId, avatar: preset.avatarDataUrl });
         }
 
-        if (preset.bannerDataUrl) {
+        if (preset.bannerDataUrl !== undefined && preset.bannerDataUrl !== current.bannerDataUrl) {
             dispatch("USER_SETTINGS_ACCOUNT_SET_PENDING_BANNER", { guildId, banner: preset.bannerDataUrl });
         }
 
-        if (preset.bio !== undefined) {
+        if (preset.bio !== undefined && preset.bio !== current.bio) {
             dispatch("USER_SETTINGS_ACCOUNT_SET_PENDING_BIO", { guildId, bio: preset.bio });
         }
 
-        if (preset.pronouns !== undefined) {
+        if (preset.pronouns !== undefined && preset.pronouns !== current.pronouns) {
             dispatch("USER_SETTINGS_ACCOUNT_SET_PENDING_PRONOUNS", { guildId, pronouns: preset.pronouns });
         }
 
-        if (preset.themeColors !== undefined) {
-            dispatch("USER_SETTINGS_ACCOUNT_SET_PENDING_THEME_COLORS", {
-                guildId,
-                themeColors: Array.isArray(preset.themeColors) ? preset.themeColors.map(Number) : null
-            });
-        }
-
-        if (preset.globalName !== undefined) {
+        if (preset.globalName !== undefined && preset.globalName !== current.globalName) {
             dispatch("USER_SETTINGS_ACCOUNT_SET_PENDING_GLOBAL_NAME", { globalName: preset.globalName });
         }
 
-        if (preset.avatarDecoration !== undefined) {
+        if (preset.avatarDecoration !== undefined && !jsonEq(preset.avatarDecoration, current.avatarDecoration)) {
             dispatch("USER_SETTINGS_ACCOUNT_SET_PENDING_COLLECTIBLES_ITEM", {
                 guildId,
                 item: { type: 0, value: preset.avatarDecoration }
             });
         }
 
-        if (preset.profileEffect !== undefined) {
+        if (preset.profileEffect !== undefined && !jsonEq(preset.profileEffect, current.profileEffect)) {
             dispatch("USER_SETTINGS_ACCOUNT_SET_PENDING_COLLECTIBLES_ITEM", {
                 guildId,
                 item: { type: 1, value: preset.profileEffect }
             });
         }
 
-        if (preset.nameplate !== undefined) {
+        if (preset.nameplate !== undefined && !jsonEq(preset.nameplate, current.nameplate)) {
             dispatch("USER_SETTINGS_ACCOUNT_SET_PENDING_COLLECTIBLES_ITEM", {
                 guildId,
                 item: { type: 2, value: preset.nameplate }
             });
         }
 
-        if (preset.displayNameStyles) {
+        if (preset.displayNameStyles !== undefined && !jsonEq(preset.displayNameStyles, current.displayNameStyles)) {
             dispatch("USER_SETTINGS_ACCOUNT_SET_PENDING_DISPLAY_NAME_STYLES", {
                 guildId,
                 displayNameStyles: preset.displayNameStyles
             });
         }
 
-        if (preset.primaryGuildId !== undefined && !guildId) {
+        if (preset.primaryGuildId !== undefined && !guildId && preset.primaryGuildId !== current.primaryGuildId) {
             dispatch("USER_SETTINGS_SET_PENDING_PRIMARY_GUILD_ID", { primaryGuildId: preset.primaryGuildId });
         }
 
-        if (preset.customStatus && !guildId) {
+        if (preset.customStatus && !guildId && !customStatusEq(preset.customStatus, current.customStatus)) {
             CustomStatusSettings.updateSetting({
                 text: preset.customStatus.text || "",
                 expiresAtMs: preset.customStatus.expiresAtMs || "0",
