@@ -76,12 +76,12 @@ const settings = definePluginSettings({
 
 const args: {
     ringing: string[];
-    ongoingRings: string[];
+    ongoingRings: Record<string, unknown>;
     messageId: string;
     region: string;
 } = {
     ringing: [],
-    ongoingRings: [],
+    ongoingRings: {},
     messageId: "",
     region: "",
 };
@@ -107,7 +107,7 @@ export default definePlugin({
     flux: {
         async CALL_UPDATE({ ringing, ongoingRings, messageId, region }) {
             args.ringing = Array.isArray(ringing) ? ringing : [];
-            args.ongoingRings = Array.isArray(ongoingRings) ? ongoingRings : [];
+            args.ongoingRings = ongoingRings && typeof ongoingRings === "object" ? ongoingRings : {};
             args.messageId = messageId;
             args.region = region;
         }
@@ -120,7 +120,7 @@ export default definePlugin({
                 type: "CALL_UPDATE",
                 channelId: channel.id,
                 ringing: args.ringing.filter((id: string) => id !== currentUserId),
-                ongoingRings: args.ongoingRings.filter((id: string) => id !== currentUserId),
+                ongoingRings: args.ongoingRings,
                 messageId: args.messageId,
                 region: args.region
             });
@@ -141,7 +141,7 @@ export default definePlugin({
                                     type: "CALL_UPDATE",
                                     channelId: channel.id,
                                     ringing: args.ringing.filter((id: string) => id !== currentUserId),
-                                    ongoingRings: args.ongoingRings.filter((id: string) => id !== currentUserId),
+                                    ongoingRings: args.ongoingRings,
                                     messageId: args.messageId,
                                     region: args.region
                                 });
