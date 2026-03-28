@@ -23,7 +23,7 @@ export default definePlugin({
             find: ".VOICE_PANEL}}",
             replacement: [
                 {
-                    match: /\[\i\.\i\]:\i\}\),children:\[/,
+                    match: /focusProps:\{offset:\{right:4\}\},children:.{0,80}children:\[/,
                     replace: "$&$self.renderButtons(arguments[0]?.user),"
                 }
             ]
