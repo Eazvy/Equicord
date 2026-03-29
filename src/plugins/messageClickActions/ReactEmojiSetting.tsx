@@ -72,16 +72,10 @@ function getCustomEmojiSources(id: string, animated: boolean) {
     const host = window.GLOBAL_ENV.CDN_HOST;
     const base = `https://${host}/emojis/${id}`;
 
-    return animated
-        ? [
-            `${base}.gif?size=48&quality=lossless`,
-            `${base}.webp?size=48&quality=lossless`,
-            `${base}.png?size=48&quality=lossless`
-        ]
-        : [
-            `${base}.webp?size=48&quality=lossless`,
-            `${base}.png?size=48&quality=lossless`
-        ];
+    return {
+        primary: `${base}.${animated ? "gif" : "png"}?size=48&quality=lossless`,
+        fallback: `${base}.png?size=48&quality=lossless`
+    };
 }
 
 function CustomEmojiPreview({
@@ -93,17 +87,21 @@ function CustomEmojiPreview({
     name: string;
     animated: boolean;
 }) {
-    const sources = getCustomEmojiSources(id, animated);
-    const [srcIndex, setSrcIndex] = useState(0);
+    const { primary, fallback } = getCustomEmojiSources(id, animated);
+    const [failedPrimary, setFailedPrimary] = useState(false);
 
     return (
         <img
-            src={sources[srcIndex]}
+            src={failedPrimary ? fallback : primary}
             alt={name}
             width={34}
             height={34}
             style={{ display: "block" }}
-            onError={() => setSrcIndex(current => current < sources.length - 1 ? current + 1 : current)}
+            onError={() => {
+                if (!failedPrimary && primary !== fallback) {
+                    setFailedPrimary(true);
+                }
+            }}
         />
     );
 }
