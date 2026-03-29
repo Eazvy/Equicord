@@ -59,31 +59,6 @@ const selfSettings: ToggleOption<SelfSettingKey>[] = [
     { key: "avoidAfk", label: "Avoid AFK" },
 ];
 
-interface RandomVoiceSettingsStore {
-    UserAmountOperation: RandomVoiceOperation;
-    UserAmount: number;
-    spacesLeftOperation: RandomVoiceOperation;
-    spacesLeft: number;
-    vcLimitOperation: RandomVoiceOperation;
-    vcLimit: number;
-    Servers: string;
-    autoNavigate: boolean;
-    autoCamera: boolean;
-    autoStream: boolean;
-    selfMute: boolean;
-    selfDeafen: boolean;
-    leaveEmpty: boolean;
-    prioritizeFriends: boolean;
-    avoidStages: boolean;
-    avoidAfk: boolean;
-    video: boolean;
-    stream: boolean;
-    mute: boolean;
-    deafen: boolean;
-    includeStates: boolean;
-    avoidStates: boolean;
-}
-
 interface RandomVoiceStateLike {
     userId?: string | null;
     channelId?: string | null;
@@ -234,10 +209,6 @@ function RandomVoiceIcon({ className }: { className?: string; }) {
     );
 }
 
-function getStore() {
-    return settings.store as RandomVoiceSettingsStore;
-}
-
 function getCurrentUserId() {
     return UserStore.getCurrentUser()?.id ?? null;
 }
@@ -250,7 +221,7 @@ function getCurrentVoiceChannelId(userId = getCurrentUserId()) {
         ?? null;
 }
 
-function parseServerIds(store = getStore()) {
+function parseServerIds(store = settings.store) {
     return store.Servers
         .split("/")
         .map(id => id.trim())
@@ -258,18 +229,12 @@ function parseServerIds(store = getStore()) {
 }
 
 function setServerIds(serverIds: string[]) {
-    getStore().Servers = serverIds.length ? `/${serverIds.join("/")}` : NO_SERVERS;
+    settings.store.Servers = serverIds.length ? `/${serverIds.join("/")}` : NO_SERVERS;
 }
 
-function getGuildIds() {
-    return getRenderableGuilds().map(guild => guild.id);
-}
-
-function getSelectedServerIds(store = getStore()) {
-    if (store.Servers === "") return getGuildIds();
-
-    const serverIds = parseServerIds(store);
-    return serverIds;
+function getSelectedServerIds(store = settings.store) {
+    if (store.Servers === "") return null;
+    return parseServerIds(store);
 }
 
 function getRenderableGuilds() {
@@ -281,21 +246,13 @@ function getRenderableGuilds() {
         .sort((left, right) => left.name.localeCompare(right.name));
 }
 
-function countVoiceStates(voiceStates: Record<string, RandomVoiceStateLike> | null) {
-    return Object.keys(voiceStates ?? {}).length;
-}
-
-function pickRandom<T>(items: T[]) {
-    return items[Math.floor(Math.random() * items.length)] ?? null;
-}
-
 function getGuildVoiceStates() {
-    return getGuildIds().flatMap(guildId =>
-        Object.entries(VoiceStateStore.getVoiceStates(guildId) as Record<string, RandomVoiceStateLike> | null ?? {})
+    return getRenderableGuilds().flatMap(({ id }) =>
+        Object.entries(VoiceStateStore.getVoiceStates(id) as Record<string, RandomVoiceStateLike> | null ?? {})
     );
 }
 
-function hasStateFilters(store = getStore()) {
+function hasStateFilters(store = settings.store) {
     return stateFilters.some(({ key }) => store[key]);
 }
 
@@ -315,7 +272,7 @@ function isAfkChannel(channel: Channel) {
     return GuildStore.getGuild(guildId)?.afkChannelId === channel.id;
 }
 
-function matchesStateFilters(state: RandomVoiceStateLike, store = getStore()) {
+function matchesStateFilters(state: RandomVoiceStateLike, store = settings.store) {
     if (store.mute && !state.selfMute) return false;
     if (store.deafen && !state.selfDeaf) return false;
     if (store.video && !state.selfVideo) return false;
@@ -323,24 +280,20 @@ function matchesStateFilters(state: RandomVoiceStateLike, store = getStore()) {
     return true;
 }
 
-function getChannelVoiceStates(channelId: string) {
-    return VoiceStateStore.getVoiceStatesForChannel(channelId) as Record<string, RandomVoiceStateLike> | null;
-}
-
-function isJoinableChannel(channelId: string, store = getStore()) {
+function isJoinableChannel(channelId: string, store = settings.store) {
     const channel = ChannelStore.getChannel(channelId);
     if (!channel) return false;
 
     const selectedServerIds = getSelectedServerIds(store);
     const guildId = channel.getGuildId();
-    if (selectedServerIds.length && (!guildId || !selectedServerIds.includes(guildId))) return false;
+    if (selectedServerIds != null && (!guildId || !selectedServerIds.includes(guildId))) return false;
     if (store.avoidStages && isStageChannel(channel)) return false;
     if (store.avoidAfk && isAfkChannel(channel)) return false;
     if (!PermissionStore.can(PermissionsBits.CONNECT, channel)) return false;
 
     const currentUserId = getCurrentUserId();
-    const voiceStates = getChannelVoiceStates(channelId);
-    const usersInChannel = countVoiceStates(voiceStates);
+    const voiceStates = VoiceStateStore.getVoiceStatesForChannel(channelId) as Record<string, RandomVoiceStateLike> | null;
+    const usersInChannel = Object.keys(voiceStates ?? {}).length;
 
     if (channel.userLimit > 0 && usersInChannel >= channel.userLimit) return false;
     if (currentUserId && voiceStates && Object.prototype.hasOwnProperty.call(voiceStates, currentUserId)) return false;
@@ -348,12 +301,12 @@ function isJoinableChannel(channelId: string, store = getStore()) {
     return true;
 }
 
-function matchesChannelFilters(channelId: string, store = getStore()) {
+function matchesChannelFilters(channelId: string, store = settings.store) {
     const channel = ChannelStore.getChannel(channelId);
     if (!channel) return false;
 
-    const voiceStates = getChannelVoiceStates(channelId);
-    const usersInChannel = countVoiceStates(voiceStates);
+    const voiceStates = VoiceStateStore.getVoiceStatesForChannel(channelId) as Record<string, RandomVoiceStateLike> | null;
+    const usersInChannel = Object.keys(voiceStates ?? {}).length;
     const channelLimit = channel.userLimit || 99;
     const spacesLeft = channelLimit - usersInChannel;
 
@@ -371,7 +324,7 @@ function matchesChannelFilters(channelId: string, store = getStore()) {
     return true;
 }
 
-function getCandidateChannelIds(store = getStore()) {
+function getCandidateChannelIds(store = settings.store) {
     const candidates = new Set<string>();
 
     for (const [, state] of getGuildVoiceStates()) {
@@ -398,15 +351,15 @@ function getFriendChannelIds() {
     return friendChannelIds;
 }
 
-function pickRandomChannel(store = getStore()) {
+function pickRandomChannel(store = settings.store) {
     const candidates = getCandidateChannelIds(store);
-    const friendChannelIds = getFriendChannelIds();
+    const friendChannelIds = store.prioritizeFriends ? getFriendChannelIds() : null;
     const friendCandidates = store.prioritizeFriends
-        ? [...friendChannelIds]
+        ? candidates.filter(channelId => friendChannelIds?.has(channelId))
         : [];
 
     const pool = friendCandidates.length ? friendCandidates : candidates;
-    return pickRandom(pool);
+    return pool[Math.floor(Math.random() * pool.length)] ?? null;
 }
 
 async function enableCamera() {
@@ -469,7 +422,7 @@ async function joinRandomVoice() {
         return;
     }
 
-    const store = getStore();
+    const { store } = settings;
     ChannelActions.selectVoiceChannel(channelId);
 
     if (store.autoNavigate) {
@@ -510,11 +463,12 @@ function RandomVoiceButton({ iconForeground, hideTooltips, nameplate }: UserArea
 
 function RandomVoiceMenu({ onClose }: { onClose(): void; }) {
     const [, rerender] = React.useReducer(value => value + 1, 0);
-    const store = getStore();
-    const selectedServerIds = getSelectedServerIds(store);
+    const { store } = settings;
     const guilds = getRenderableGuilds();
+    const allServerIds = guilds.map(guild => guild.id);
+    const selectedServerIds = getSelectedServerIds(store) ?? allServerIds;
 
-    const update = <K extends keyof RandomVoiceSettingsStore>(key: K, value: RandomVoiceSettingsStore[K]) => {
+    const update = <K extends keyof typeof store>(key: K, value: typeof store[K]) => {
         store[key] = value;
         rerender();
     };
@@ -549,8 +503,8 @@ function RandomVoiceMenu({ onClose }: { onClose(): void; }) {
                     <Menu.MenuCheckboxItem
                         id="random-voice-select-all-servers"
                         label="Select All"
-                        checked={selectedServerIds.length === guilds.length}
-                        disabled={selectedServerIds.length === guilds.length}
+                        checked={selectedServerIds.length === allServerIds.length}
+                        disabled={selectedServerIds.length === allServerIds.length}
                         action={selectAllServers}
                     />
                     <Menu.MenuCheckboxItem
@@ -728,7 +682,7 @@ export default definePlugin({
     flux: {
         VOICE_STATE_UPDATES({ voiceStates }: { voiceStates: VoiceState[]; }) {
             const currentUserId = getCurrentUserId();
-            if (!currentUserId || !getStore().leaveEmpty) return;
+            if (!currentUserId || !settings.store.leaveEmpty) return;
 
             const myChannelId = getCurrentVoiceChannelId(currentUserId);
             if (!myChannelId) return;
