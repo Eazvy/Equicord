@@ -35,6 +35,19 @@ const ReactionEmojiPicker = findByCodeLazy(
     "pickerIntention:",
     "messageId:"
 ) as React.ComponentType<ReactionEmojiPickerProps>;
+const EMOJI_PICKER_TRIGGER_STYLE = {
+    minWidth: 46,
+    height: 46,
+    padding: "0 8px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+    background: "var(--background-secondary-alt)",
+    border: "1px solid var(--input-border)",
+    cursor: "pointer",
+    lineHeight: 1
+} as const;
 
 function parseCustomEmoji(value: string) {
     return value.match(/^(?:<(?:(a):)?|:)?([\w-]+?)(?:~\d+)?:([0-9]+)>?$/);
@@ -68,7 +81,7 @@ function toRenderedEmoji(value: string) {
     };
 }
 
-function getCustomEmojiSources(id: string, animated: boolean) {
+function getCustomEmojiUrl(id: string, animated: boolean) {
     const host = window.GLOBAL_ENV.CDN_HOST;
     const base = `https://${host}/emojis/${id}`;
 
@@ -87,7 +100,7 @@ function CustomEmojiPreview({
     name: string;
     animated: boolean;
 }) {
-    const { primary, fallback } = getCustomEmojiSources(id, animated);
+    const { primary, fallback } = getCustomEmojiUrl(id, animated);
     const [failedPrimary, setFailedPrimary] = useState(false);
 
     return (
@@ -140,19 +153,7 @@ function EmojiPickerButton({
                 <div
                     {...popoutProps}
                     ref={triggerRef}
-                    style={{
-                        minWidth: 46,
-                        height: 46,
-                        padding: "0 8px",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        borderRadius: 8,
-                        background: "var(--background-secondary-alt)",
-                        border: "1px solid var(--input-border)",
-                        cursor: "pointer",
-                        lineHeight: 1
-                    }}
+                    style={EMOJI_PICKER_TRIGGER_STYLE}
                 >
                     {children ?? "Pick Emoji"}
                 </div>
@@ -170,9 +171,34 @@ function parseEmojiList(value: string) {
     )).slice(0, MAX_ADDITIONAL_REACT_EMOJIS);
 }
 
+function addEmojiToList(list: string, emoji: string) {
+    const parsedList = parseEmojiList(list);
+    if (parsedList.includes(emoji)) return parsedList.join(", ");
+
+    return [...parsedList, emoji]
+        .slice(0, MAX_ADDITIONAL_REACT_EMOJIS)
+        .join(", ");
+}
+
+function EmojiPreview({ value }: { value: string; }) {
+    const renderedEmoji = toRenderedEmoji(value);
+    if (!renderedEmoji) return <>Pick Emoji</>;
+
+    if (renderedEmoji.kind === "custom") {
+        return (
+            <CustomEmojiPreview
+                id={renderedEmoji.id}
+                name={renderedEmoji.name}
+                animated={renderedEmoji.animated}
+            />
+        );
+    }
+
+    return <span style={{ fontSize: 28, lineHeight: 1 }}>{renderedEmoji.name}</span>;
+}
+
 export function ReactEmojiSetting({ setValue }: IPluginOptionComponentProps) {
     const [emoji, setEmoji] = useState(settings.store.reactEmoji ?? "💀");
-    const renderedEmoji = toRenderedEmoji(emoji);
 
     return (
         <div>
@@ -190,15 +216,7 @@ export function ReactEmojiSetting({ setValue }: IPluginOptionComponentProps) {
                         setValue(newValue);
                     }}
                 >
-                    {renderedEmoji != null
-                        ? renderedEmoji.kind === "custom"
-                            ? <CustomEmojiPreview
-                                id={renderedEmoji.id}
-                                name={renderedEmoji.name}
-                                animated={renderedEmoji.animated}
-                            />
-                            : <span style={{ fontSize: 28, lineHeight: 1 }}>{renderedEmoji.name}</span>
-                        : "Pick Emoji"}
+                    <EmojiPreview value={emoji} />
                 </EmojiPickerButton>
             </div>
         </div>
@@ -238,11 +256,7 @@ export function AdditionalReactEmojisSetting({ setValue }: IPluginOptionComponen
                 />
                 <EmojiPickerButton
                     onSelect={newValue => {
-                        const parsed = parseEmojiList(emojiList);
-                        const merged = parsed.includes(newValue)
-                            ? parsed
-                            : [...parsed, newValue].slice(0, MAX_ADDITIONAL_REACT_EMOJIS);
-                        const nextValue = merged.join(", ");
+                        const nextValue = addEmojiToList(emojiList, newValue);
                         setEmojiList(nextValue);
                         setValue(nextValue);
                     }}
