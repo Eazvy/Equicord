@@ -4,51 +4,163 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import "./styles.css";
-
 import { Heading } from "@components/Heading";
 import type { IPluginOptionComponentProps } from "@utils/types";
-import { findComponentByCodeLazy } from "@webpack";
-import { TextInput, useState } from "@webpack/common";
+import type { Channel } from "@vencord/discord-types";
+import { findByCodeLazy } from "@webpack";
+import { ChannelStore, Popout, SelectedChannelStore, TextInput, useRef, useState, useStateFromStores } from "@webpack/common";
 
 import { settings } from ".";
 
-type EmojiData = {
-    id?: string | null;
-    name: string;
-};
+export const MAX_ADDITIONAL_REACT_EMOJIS = 8;
 
 type EmojiSelectPayload = {
-    id: string | null;
-    name: string;
+    id?: string | null;
+    name?: string | null;
+    optionallyDiverseSequence?: string;
     animated?: boolean;
 };
 
-const StatusEmojiPicker = findComponentByCodeLazy("setCustomStatusEmoji", "setIsEmojiPickerOpen", "selectedDefaultStatus");
-export const MAX_ADDITIONAL_REACT_EMOJIS = 8;
+type ReactionEmojiPickerProps = {
+    channel?: Channel | null;
+    closePopout(): void;
+    onSelectEmoji(selection: {
+        emoji: EmojiSelectPayload | null;
+        willClose: boolean;
+    }): void;
+};
 
-function getEmojiValue(emoji: EmojiData) {
-    return emoji.id ? `${emoji.name}:${emoji.id}` : emoji.name;
+const ReactionEmojiPicker = findByCodeLazy(
+    "showAddEmojiButton:",
+    "pickerIntention:",
+    "messageId:"
+) as React.ComponentType<ReactionEmojiPickerProps>;
+
+function parseCustomEmoji(value: string) {
+    return value.match(/^(?:<(?:(a):)?|:)?([\w-]+?)(?:~\d+)?:([0-9]+)>?$/);
 }
 
-function parseEmojiValue(value: string): EmojiSelectPayload | null {
+function getEmojiValue(emoji: EmojiSelectPayload | null | undefined) {
+    if (!emoji) return "";
+    if (emoji.id && emoji.name) return `${emoji.name}:${emoji.id}`;
+    if (emoji.optionallyDiverseSequence?.trim()) return emoji.optionallyDiverseSequence;
+    return emoji.name?.trim() ?? "";
+}
+
+function toRenderedEmoji(value: string) {
     const trimmed = value.trim();
     if (!trimmed) return null;
 
-    const customEmoji = trimmed.match(/^:?([\w-]+):(\d+)$/);
+    const customEmoji = parseCustomEmoji(trimmed);
     if (customEmoji) {
         return {
-            id: customEmoji[2],
-            name: customEmoji[1],
-            animated: false
+            kind: "custom" as const,
+            id: customEmoji[3],
+            name: customEmoji[2],
+            animated: customEmoji[1] === "a"
         };
     }
 
     return {
-        id: null,
+        kind: "unicode" as const,
         name: trimmed,
         animated: false
     };
+}
+
+function getCustomEmojiSources(id: string, animated: boolean) {
+    const host = window.GLOBAL_ENV.CDN_HOST;
+    const base = `https://${host}/emojis/${id}`;
+
+    return animated
+        ? [
+            `${base}.gif?size=48&quality=lossless`,
+            `${base}.webp?size=48&quality=lossless`,
+            `${base}.png?size=48&quality=lossless`
+        ]
+        : [
+            `${base}.webp?size=48&quality=lossless`,
+            `${base}.png?size=48&quality=lossless`
+        ];
+}
+
+function CustomEmojiPreview({
+    id,
+    name,
+    animated
+}: {
+    id: string;
+    name: string;
+    animated: boolean;
+}) {
+    const sources = getCustomEmojiSources(id, animated);
+    const [srcIndex, setSrcIndex] = useState(0);
+
+    return (
+        <img
+            src={sources[srcIndex]}
+            alt={name}
+            width={34}
+            height={34}
+            style={{ display: "block" }}
+            onError={() => setSrcIndex(current => current < sources.length - 1 ? current + 1 : current)}
+        />
+    );
+}
+
+function EmojiPickerButton({
+    onSelect,
+    children
+}: {
+    onSelect(value: string): void;
+    children?: React.ReactNode;
+}) {
+    const triggerRef = useRef<HTMLDivElement>(null);
+    const channel = useStateFromStores([SelectedChannelStore, ChannelStore], () => {
+        const channelId = SelectedChannelStore.getChannelId();
+        return channelId ? ChannelStore.getChannel(channelId) : null;
+    });
+
+    return (
+        <Popout
+            position="bottom"
+            align="left"
+            targetElementRef={triggerRef}
+            renderPopout={({ closePopout }) => (
+                <ReactionEmojiPicker
+                    channel={channel}
+                    closePopout={closePopout}
+                    onSelectEmoji={({ emoji, willClose }) => {
+                        const nextValue = getEmojiValue(emoji);
+                        if (nextValue) onSelect(nextValue);
+                        if (willClose) closePopout();
+                    }}
+                />
+            )}
+        >
+            {popoutProps => (
+                <div
+                    {...popoutProps}
+                    ref={triggerRef}
+                    style={{
+                        minWidth: 46,
+                        height: 46,
+                        padding: "0 8px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: 8,
+                        background: "var(--background-secondary-alt)",
+                        border: "1px solid var(--input-border)",
+                        cursor: "pointer",
+                        lineHeight: 1
+                    }}
+                >
+                    {children ?? "Pick Emoji"}
+                </div>
+            )}
+        </Popout>
+    );
 }
 
 function parseEmojiList(value: string) {
@@ -62,35 +174,34 @@ function parseEmojiList(value: string) {
 
 export function ReactEmojiSetting({ setValue }: IPluginOptionComponentProps) {
     const [emoji, setEmoji] = useState(settings.store.reactEmoji ?? "💀");
-    const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+    const renderedEmoji = toRenderedEmoji(emoji);
 
     return (
         <div>
             <Heading>Select Emoji For Reactions</Heading>
             <div
-                className="vc-message-click-actions-primary-emoji-picker"
-                onClick={event => event.stopPropagation()}
-                onMouseDown={event => event.stopPropagation()}
+                style={{
+                    marginTop: 8,
+                    display: "inline-flex",
+                    alignItems: "center"
+                }}
             >
-                <StatusEmojiPicker
-                    customStatusEmoji={parseEmojiValue(emoji)}
-                    setCustomStatusEmoji={(selectedEmoji: EmojiSelectPayload | null) => {
-                        if (!selectedEmoji) {
-                            setEmoji("");
-                            setValue("");
-                            setIsEmojiPickerOpen(false);
-                            return;
-                        }
-
-                        const value = getEmojiValue(selectedEmoji);
-                        setEmoji(value);
-                        setValue(value);
-                        setIsEmojiPickerOpen(false);
+                <EmojiPickerButton
+                    onSelect={newValue => {
+                        setEmoji(newValue);
+                        setValue(newValue);
                     }}
-                    selectedDefaultStatus={isEmojiPickerOpen ? null : "online"}
-                    setIsEmojiPickerOpen={setIsEmojiPickerOpen}
-                    defaultStatusVariant="small"
-                />
+                >
+                    {renderedEmoji != null
+                        ? renderedEmoji.kind === "custom"
+                            ? <CustomEmojiPreview
+                                id={renderedEmoji.id}
+                                name={renderedEmoji.name}
+                                animated={renderedEmoji.animated}
+                            />
+                            : <span style={{ fontSize: 28, lineHeight: 1 }}>{renderedEmoji.name}</span>
+                        : "Pick Emoji"}
+                </EmojiPickerButton>
             </div>
         </div>
     );
@@ -99,8 +210,6 @@ export function ReactEmojiSetting({ setValue }: IPluginOptionComponentProps) {
 export function AdditionalReactEmojisSetting({ setValue }: IPluginOptionComponentProps) {
     const { addAdditionalReacts } = settings.use(["addAdditionalReacts"]);
     const [emojiList, setEmojiList] = useState(settings.store.additionalReactEmojis ?? "");
-    const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
-    const [pickerEmoji, setPickerEmoji] = useState<EmojiSelectPayload | null>(parseEmojiValue("😀"));
 
     if (!addAdditionalReacts) return null;
 
@@ -122,8 +231,6 @@ export function AdditionalReactEmojisSetting({ setValue }: IPluginOptionComponen
                     onChange={newValue => {
                         setEmojiList(newValue);
                         setValue(newValue);
-                        const [first] = parseEmojiList(newValue);
-                        setPickerEmoji(parseEmojiValue(first ?? "😀"));
                     }}
                     onClick={event => event.stopPropagation()}
                     onMouseDown={event => event.stopPropagation()}
@@ -131,39 +238,17 @@ export function AdditionalReactEmojisSetting({ setValue }: IPluginOptionComponen
                         flex: 1
                     }}
                 />
-                <div
-                    onClick={event => event.stopPropagation()}
-                    onMouseDown={event => event.stopPropagation()}
-                    style={{
-                        display: "inline-flex",
-                        transform: "scale(1.2)",
-                        transformOrigin: "center"
+                <EmojiPickerButton
+                    onSelect={newValue => {
+                        const parsed = parseEmojiList(emojiList);
+                        const merged = parsed.includes(newValue)
+                            ? parsed
+                            : [...parsed, newValue].slice(0, MAX_ADDITIONAL_REACT_EMOJIS);
+                        const nextValue = merged.join(", ");
+                        setEmojiList(nextValue);
+                        setValue(nextValue);
                     }}
-                >
-                    <StatusEmojiPicker
-                        customStatusEmoji={pickerEmoji}
-                        setCustomStatusEmoji={(selectedEmoji: EmojiSelectPayload | null) => {
-                            if (!selectedEmoji) {
-                                setIsEmojiPickerOpen(false);
-                                return;
-                            }
-
-                            const value = getEmojiValue(selectedEmoji);
-                            const parsed = parseEmojiList(emojiList);
-                            const merged = parsed.includes(value)
-                                ? parsed
-                                : [...parsed, value].slice(0, MAX_ADDITIONAL_REACT_EMOJIS);
-                            const nextValue = merged.join(", ");
-                            setEmojiList(nextValue);
-                            setValue(nextValue);
-                            setPickerEmoji(selectedEmoji);
-                            setIsEmojiPickerOpen(false);
-                        }}
-                        selectedDefaultStatus={isEmojiPickerOpen ? null : "online"}
-                        setIsEmojiPickerOpen={setIsEmojiPickerOpen}
-                        defaultStatusVariant="small"
-                    />
-                </div>
+                />
             </div>
         </div>
     );
