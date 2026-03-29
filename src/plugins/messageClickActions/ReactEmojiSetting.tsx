@@ -9,8 +9,8 @@ import "./styles.css";
 import { Heading } from "@components/Heading";
 import type { IPluginOptionComponentProps } from "@utils/types";
 import type { Channel } from "@vencord/discord-types";
-import { findByCodeLazy } from "@webpack";
-import { ChannelStore, Popout, SelectedChannelStore, TextInput, useRef, useState, useStateFromStores } from "@webpack/common";
+import { findComponentByCodeLazy } from "@webpack";
+import { ChannelStore, IconUtils, Popout, SelectedChannelStore, TextInput, useRef, useState, useStateFromStores } from "@webpack/common";
 
 import { settings } from ".";
 
@@ -32,11 +32,11 @@ type ReactionEmojiPickerProps = {
     }): void;
 };
 
-const ReactionEmojiPicker = findByCodeLazy(
+const ReactionEmojiPicker = findComponentByCodeLazy<ReactionEmojiPickerProps>(
     "showAddEmojiButton:",
     "pickerIntention:",
     "messageId:"
-) as React.ComponentType<ReactionEmojiPickerProps>;
+);
 
 function parseCustomEmoji(value: string) {
     return value.match(/^(?:<(?:(a):)?|:)?([\w-]+?)(?:~\d+)?:([0-9]+)>?$/);
@@ -70,14 +70,12 @@ function toRenderedEmoji(value: string) {
     };
 }
 
-function getCustomEmojiUrl(id: string, animated: boolean) {
-    const host = window.GLOBAL_ENV.CDN_HOST;
-    const base = `https://${host}/emojis/${id}`;
+function getCustomEmojiSources(id: string, animated: boolean) {
+    const staticUrl = IconUtils.getEmojiURL({ id, animated: false, size: 48 });
+    if (!animated) return [staticUrl];
 
-    return {
-        primary: `${base}.${animated ? "gif" : "png"}?size=48&quality=lossless`,
-        fallback: `${base}.png?size=48&quality=lossless`
-    };
+    const animatedUrl = IconUtils.getEmojiURL({ id, animated: true, size: 48 });
+    return animatedUrl === staticUrl ? [staticUrl] : [animatedUrl, staticUrl];
 }
 
 function CustomEmojiPreview({
@@ -89,21 +87,17 @@ function CustomEmojiPreview({
     name: string;
     animated: boolean;
 }) {
-    const { primary, fallback } = getCustomEmojiUrl(id, animated);
-    const [failedPrimary, setFailedPrimary] = useState(false);
+    const sources = getCustomEmojiSources(id, animated);
+    const [srcIndex, setSrcIndex] = useState(0);
 
     return (
         <img
-            src={failedPrimary ? fallback : primary}
+            src={sources[srcIndex]}
             alt={name}
             width={34}
             height={34}
             className="vc-message-click-actions-emoji-preview"
-            onError={() => {
-                if (!failedPrimary && primary !== fallback) {
-                    setFailedPrimary(true);
-                }
-            }}
+            onError={() => setSrcIndex(current => current < sources.length - 1 ? current + 1 : current)}
         />
     );
 }
