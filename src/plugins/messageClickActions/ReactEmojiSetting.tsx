@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import "./styles.css";
+
 import { Heading } from "@components/Heading";
 import type { IPluginOptionComponentProps } from "@utils/types";
 import type { Channel } from "@vencord/discord-types";
@@ -35,19 +37,6 @@ const ReactionEmojiPicker = findByCodeLazy(
     "pickerIntention:",
     "messageId:"
 ) as React.ComponentType<ReactionEmojiPickerProps>;
-const EMOJI_PICKER_TRIGGER_STYLE = {
-    minWidth: 46,
-    height: 46,
-    padding: "0 8px",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 8,
-    background: "var(--background-secondary-alt)",
-    border: "1px solid var(--input-border)",
-    cursor: "pointer",
-    lineHeight: 1
-} as const;
 
 function parseCustomEmoji(value: string) {
     return value.match(/^(?:<(?:(a):)?|:)?([\w-]+?)(?:~\d+)?:([0-9]+)>?$/);
@@ -109,7 +98,7 @@ function CustomEmojiPreview({
             alt={name}
             width={34}
             height={34}
-            style={{ display: "block" }}
+            className="vc-message-click-actions-emoji-preview"
             onError={() => {
                 if (!failedPrimary && primary !== fallback) {
                     setFailedPrimary(true);
@@ -153,7 +142,7 @@ function EmojiPickerButton({
                 <div
                     {...popoutProps}
                     ref={triggerRef}
-                    style={EMOJI_PICKER_TRIGGER_STYLE}
+                    className="vc-message-click-actions-emoji-trigger"
                 >
                     {children ?? "Pick Emoji"}
                 </div>
@@ -194,7 +183,7 @@ function EmojiPreview({ value }: { value: string; }) {
         );
     }
 
-    return <span style={{ fontSize: 28, lineHeight: 1 }}>{renderedEmoji.name}</span>;
+    return <span className="vc-message-click-actions-unicode-preview">{renderedEmoji.name}</span>;
 }
 
 export function ReactEmojiSetting({ setValue }: IPluginOptionComponentProps) {
