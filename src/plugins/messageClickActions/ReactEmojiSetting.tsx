@@ -7,6 +7,7 @@
 import "./styles.css";
 
 import { Heading } from "@components/Heading";
+import { classNameFactory } from "@utils/css";
 import type { IPluginOptionComponentProps } from "@utils/types";
 import type { Channel } from "@vencord/discord-types";
 import { findComponentByCodeLazy } from "@webpack";
@@ -15,6 +16,7 @@ import { ChannelStore, IconUtils, Popout, SelectedChannelStore, TextInput, useRe
 import { settings } from ".";
 
 export const MAX_ADDITIONAL_REACT_EMOJIS = 8;
+const cl = classNameFactory("vc-message-click-actions-");
 
 type EmojiSelectPayload = {
     id?: string | null;
@@ -96,7 +98,7 @@ function CustomEmojiPreview({
             alt={name}
             width={34}
             height={34}
-            className="vc-message-click-actions-emoji-preview"
+            className={cl("emoji-preview")}
             onError={() => setSrcIndex(current => current < sources.length - 1 ? current + 1 : current)}
         />
     );
@@ -136,7 +138,7 @@ function EmojiPickerButton({
                 <div
                     {...popoutProps}
                     ref={triggerRef}
-                    className="vc-message-click-actions-emoji-trigger"
+                    className={cl("emoji-trigger")}
                 >
                     {children ?? "Pick Emoji"}
                 </div>
@@ -177,7 +179,7 @@ function EmojiPreview({ value }: { value: string; }) {
         );
     }
 
-    return <span className="vc-message-click-actions-unicode-preview">{renderedEmoji.name}</span>;
+    return <span className={cl("unicode-preview")}>{renderedEmoji.name}</span>;
 }
 
 export function ReactEmojiSetting({ setValue }: IPluginOptionComponentProps) {
@@ -186,13 +188,7 @@ export function ReactEmojiSetting({ setValue }: IPluginOptionComponentProps) {
     return (
         <div>
             <Heading>Select Emoji For Reactions</Heading>
-            <div
-                style={{
-                    marginTop: 8,
-                    display: "inline-flex",
-                    alignItems: "center"
-                }}
-            >
+            <div className={cl("primary-emoji-picker")}>
                 <EmojiPickerButton
                     onSelect={newValue => {
                         setEmoji(newValue);
