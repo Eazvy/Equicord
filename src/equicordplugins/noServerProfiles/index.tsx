@@ -9,7 +9,7 @@ import { EquicordDevs } from "@utils/constants";
 import definePlugin, { OptionType } from "@utils/types";
 import { UserProfile } from "@vencord/discord-types";
 import { findExportedComponentLazy, findComponentByCodeLazy } from "@webpack";
-import { FluxDispatcher, GuildMemberStore, IconUtils, SelectedGuildStore, UserProfileStore, UserStore } from "@webpack/common";
+import { FluxDispatcher, GuildMemberStore, IconUtils, SelectedGuildStore, UserProfileStore, UserStore, useEffect, useState } from "@webpack/common";
 import type { ReactNode } from "react";
 
 const settings = definePluginSettings({
@@ -39,13 +39,20 @@ function parseEnabledUsers(raw?: string): EnabledUsers {
 const getEnabledUsers = () => parseEnabledUsers(settings.store.enabledUsers);
 
 function PopoutActionToggle({ userId, onToggle }: { userId: string; onToggle: (enabled: boolean) => void; }) {
-    const enabled = Boolean(parseEnabledUsers(settings.use().enabledUsers)[userId]);
+    const stored = Boolean(parseEnabledUsers(settings.use().enabledUsers)[userId]);
+    const [enabled, setEnabled] = useState(stored);
+
+    useEffect(() => setEnabled(stored), [stored]);
 
     return (
         <PopoutActionButton
             icon={props => <UserSquareIcon {...props} color={enabled ? "var(--white-500)" : "var(--interactive-muted)"} />}
             tooltipText={enabled ? "Use main profile" : "Use server profile"}
-            onClick={() => onToggle(!enabled)}
+            onClick={() => {
+                const next = !enabled;
+                setEnabled(next);
+                onToggle(next);
+            }}
         />
     );
 }
