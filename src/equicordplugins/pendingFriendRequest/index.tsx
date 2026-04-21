@@ -14,18 +14,17 @@ import { Menu, RelationshipStore } from "@webpack/common";
 import type { ComponentType } from "react";
 
 type RelationshipActions = { cancelFriendRequest(userId: string, context: { location: string; }): Promise<void>; };
-type AnalyticsLocations = { USER_PROFILE: string; };
 type UserContextProps = { user?: User; };
 type RelationshipButtonContext = { user: User; analyticsLocation: string; relationshipType?: RelationshipType; hasOutgoingPendingGameFriends?: boolean; };
+const USER_PROFILE_ANALYTICS_LOCATION = "USER_PROFILE";
 
 const RelationshipActions = findByPropsLazy("cancelFriendRequest", "addRelationship") as RelationshipActions;
-const AnalyticsLocations = findByPropsLazy("DM_CHANNEL", "USER_PROFILE") as AnalyticsLocations;
 
 function isOutgoingFriendRequest(userId: string) {
     return RelationshipStore.getRelationshipType(userId) === RelationshipType.OUTGOING_REQUEST;
 }
 
-function cancelOutgoingFriendRequest(userId: string, location = AnalyticsLocations.USER_PROFILE) {
+function cancelOutgoingFriendRequest(userId: string, location = USER_PROFILE_ANALYTICS_LOCATION) {
     if (!isOutgoingFriendRequest(userId)) return;
     return RelationshipActions.cancelFriendRequest(userId, { location });
 }
