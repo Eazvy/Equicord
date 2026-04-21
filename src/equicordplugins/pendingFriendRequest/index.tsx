@@ -56,8 +56,8 @@ export default definePlugin({
             group: true,
             replacement: [
                 {
-                    match: /(\i=\{icon:(\i),.{0,100}\.\.\.\i)(\};return 0===)/g,
-                    replace: "$1,...$self.getCancelFriendRequestIconButtonProps(arguments[0],$2)$3"
+                    match: /(?<=\i=\{icon:(\i),.{0,100}\.\.\.\i)(?=\};return 0===)/g,
+                    replace: ",...$self.getCancelFriendRequestIconButtonProps(arguments[0],$1)"
                 },
                 {
                     match: /disabled:!0(?=.{0,25}targetElementRef:)/g,
