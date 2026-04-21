@@ -7,29 +7,22 @@
 import type { NavContextMenuPatchCallback } from "@api/ContextMenu";
 import { EquicordDevs } from "@utils/constants";
 import definePlugin from "@utils/types";
-import type { User } from "@vencord/discord-types";
 import { RelationshipType } from "@vencord/discord-types/enums";
 import { findByPropsLazy } from "@webpack";
 import { Menu, RelationshipStore } from "@webpack/common";
-import type { ComponentType } from "react";
 
-type RelationshipActions = { cancelFriendRequest(userId: string, context: { location: string; }): Promise<void>; };
-type UserContextProps = { user?: User; };
-type RelationshipButtonContext = { user: User; analyticsLocation: string; relationshipType?: RelationshipType; hasOutgoingPendingGameFriends?: boolean; };
-const USER_PROFILE_ANALYTICS_LOCATION = "USER_PROFILE";
-
-const RelationshipActions = findByPropsLazy("cancelFriendRequest", "addRelationship") as RelationshipActions;
+const RelationshipActions = findByPropsLazy("cancelFriendRequest", "addRelationship");
 
 function isOutgoingFriendRequest(userId: string) {
     return RelationshipStore.getRelationshipType(userId) === RelationshipType.OUTGOING_REQUEST;
 }
 
-function cancelOutgoingFriendRequest(userId: string, location = USER_PROFILE_ANALYTICS_LOCATION) {
+function cancelOutgoingFriendRequest(userId: string) {
     if (!isOutgoingFriendRequest(userId)) return;
-    return RelationshipActions.cancelFriendRequest(userId, { location });
+    return RelationshipActions.cancelFriendRequest(userId);
 }
 
-const userContextPatch: NavContextMenuPatchCallback = (children, { user }: UserContextProps) => {
+const userContextPatch: NavContextMenuPatchCallback = (children, { user }) => {
     if (!user || !isOutgoingFriendRequest(user.id)) return;
 
     children.push(
@@ -54,12 +47,12 @@ export default definePlugin({
         {
             find: "#{intl::rQSndv::raw}",
             replacement: {
-                match: /variant:"primary",disabled:!0,text:\i\.intl\.string\(\i\.t#{intl::xMH6vD::raw}\)/,
+                match: /variant:"primary",.{0,50}#{intl::ADD_FRIEND_BUTTON_AFTER}\)/,
                 replace: "...$self.getCancelFriendRequestTextButtonProps(arguments[0].user.id)"
             }
         },
         {
-            find: "#{intl::s/+byI::raw}",
+            find: "#{intl::FRIENDS_REQUEST_STATUS_OUTGOING}",
             group: true,
             replacement: [
                 {
@@ -67,14 +60,14 @@ export default definePlugin({
                     replace: "$1,...$self.getCancelFriendRequestIconButtonProps(arguments[0],$2)$3"
                 },
                 {
-                    match: /disabled:!0/g,
+                    match: /disabled:!0(?=.{0,25}targetElementRef:)/g,
                     replace: "disabled:!$self.isOutgoingButton(arguments[0])"
                 }
             ]
         }
     ],
 
-    isOutgoingButton({ relationshipType, hasOutgoingPendingGameFriends }: RelationshipButtonContext) {
+    isOutgoingButton({ relationshipType, hasOutgoingPendingGameFriends }) {
         return relationshipType === RelationshipType.OUTGOING_REQUEST || hasOutgoingPendingGameFriends === true;
     },
 
@@ -86,10 +79,8 @@ export default definePlugin({
         };
     },
 
-    getCancelFriendRequestIconButtonProps(context: RelationshipButtonContext, Icon?: ComponentType<Record<string, unknown>>) {
+    getCancelFriendRequestIconButtonProps(context, Icon) {
         if (!this.isOutgoingButton(context)) return {};
-
-        const { user, analyticsLocation } = context;
 
         return {
             "aria-label": "Cancel Outgoing Friend Request",
@@ -97,7 +88,7 @@ export default definePlugin({
             icon: Icon ? (iconProps: Record<string, unknown>) => <Icon {...iconProps} color="var(--status-danger)" /> : undefined,
             tooltipText: "Cancel Outgoing Friend Request",
             variant: "critical-secondary",
-            onClick: () => cancelOutgoingFriendRequest(user.id, analyticsLocation)
+            onClick: () => cancelOutgoingFriendRequest(context?.user?.id)
         };
     }
 });
