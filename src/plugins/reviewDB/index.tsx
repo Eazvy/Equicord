@@ -69,6 +69,8 @@ const userContextPatch: NavContextMenuPatchCallback = (children, { user }: { use
 export default definePlugin({
     name: "ReviewDB",
     description: "Review other users (Adds a new settings to profiles)",
+    dependencies: ["ProfileCollectionsAPI"],
+    tags: ["Friends", "Servers"],
     authors: [Devs.mantikafasi, Devs.Ven],
     isModified: true,
 
@@ -135,7 +137,9 @@ export default definePlugin({
         }, 4000);
     },
 
-    renderProfileCollection: ({ user, isSideBar = false }: { user: User; isSideBar?: boolean; }) => {
+    renderProfileCollection: {
+        priority: 0,
+        render: ({ user, isSideBar = false }: { user: User; isSideBar?: boolean; }) => {
         const [reviewData] = useAwaiter(() => getReviews(user.id, { limit: 4 }), { deps: [user.id], fallbackValue: null });
 
         // Discord are masters at using a crap ton of html elements and css classes to create a simple ui that could have
@@ -192,5 +196,6 @@ export default definePlugin({
         return isSideBar
             ? <div className={DMSideBarClasses.widgetPreviews}>{reviewsSection}</div>
             : reviewsSection;
-    }
+    },
+    },
 });

@@ -76,6 +76,7 @@ export default definePlugin({
     name: "RoleColorEverywhere",
     authors: [Devs.KingFish, Devs.lewisakura, Devs.AutumnVN, Devs.Kyuuhachi, Devs.jamesbt365],
     description: "Adds the top role color anywhere possible",
+    tags: ["Roles", "Appearance"],
     settings,
 
     patches: [
@@ -107,8 +108,8 @@ export default definePlugin({
             find: 'tutorialId:"whos-online',
             replacement: [
                 {
-                    match: /,"aria-hidden":!0,children:\[.{0,200}— ",\i\]\}\)\]/,
-                    replace: ',"aria-hidden":!0,children:[$self.RoleGroupColor(arguments[0])]'
+                    match: /(#{intl::CHANNEL_MEMBERS_A11Y_LABEL}.+}\):null,).{0,100}?(?:—|\\u2014) ",\i\]\}\)\]/,
+                    replace: "$1$self.RoleGroupColor(arguments[0])]"
                 },
             ],
             predicate: () => settings.store.memberList
@@ -117,7 +118,7 @@ export default definePlugin({
             find: "#{intl::THREAD_BROWSER_PRIVATE}",
             replacement: [
                 {
-                    match: /children:\[\i," — ",\i\]/,
+                    match: /children:\[\i," (?:—|\\u2014) ",\i\]/,
                     replace: "children:[$self.RoleGroupColor(arguments[0])]"
                 },
             ],
@@ -138,8 +139,7 @@ export default definePlugin({
         {
             find: "MessageReactions.render:",
             replacement: {
-                // FIXME: (?:medium|normal) is for stable compat
-                match: /tag:"strong",variant:"text-md\/(?:medium|normal)"(?<=onContextMenu:.{0,15}\((\i),(\i),\i\).+?)/,
+                match: /tag:"strong",variant:"text-md\/medium"(?<=onContextMenu:.{0,15}\((\i),(\i),\i\).+?)/,
                 replace: "$&,style:$self.getColorStyle($2?.id,$1?.channel?.id)"
             },
             predicate: () => settings.store.reactorsList,
