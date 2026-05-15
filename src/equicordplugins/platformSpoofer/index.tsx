@@ -52,6 +52,7 @@ const settings = definePluginSettings({
 export default definePlugin({
     name: "PlatformSpoofer",
     description: "Spoof what platform or device you're on",
+    tags: ["Utility"],
     authors: [EquicordDevs.Drag, EquicordDevs.neoarz],
     settingsAboutComponent: () => (
         <Notice.Warning>
@@ -62,18 +63,30 @@ export default definePlugin({
     patches: [
         {
             find: "_doIdentify(){",
-            replacement: {
-                match: /(\[IDENTIFY\].*let.{0,5}=\{.*properties:)(.*),presence/,
-                replace: "$1{...$2,...$self.getPlatform(true)},presence"
-            }
+            replacement: [
+                {
+                    match: /window._ws=null,null!=\i/,
+                    replace: "false"
+                },
+                {
+                    match: /(?<="GatewaySocket"\)\}\),properties:)(\i)/,
+                    replace: "{...$1,...$self.getPlatform(true)}"
+                },
+            ]
         },
         {
-            find: '("AppSkeleton");',
-            replacement: {
-                match: /(?<=\.isPlatformEmbedded.{0,50}\i\)\)\}.{0,30})\i\?\i\.\i\.set\(.{0,10}:/,
-                replace: ""
-            }
-        }
+            find: '"2025-01-virtual-currency-rollout"',
+            replacement: [
+                {
+                    match: /(?<=\}\),)(\i)/,
+                    replace: "$1=e=>({enabled:true}),_equicord_$1"
+                },
+                {
+                    match: /(?<=\.getConfig\(\i\)\.enabled\},)(\i)/,
+                    replace: "$1=e=>({enabled:true}),_equicord_$1"
+                }
+            ]
+        },
     ],
     getPlatform(bypass, userId?: any) {
         const platform = settings.store.platform ?? "desktop";

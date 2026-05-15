@@ -7,13 +7,13 @@
 import { BaseText } from "@components/BaseText";
 import { ChannelTabsProps, closeTab, ensureUnreadFallbackCountsLoaded, getNotificationDotState, getUnreadFallbackCounts, isTabSelected, moveDraggedTabs, moveToTab, openedTabs, settings, updateUnreadFallbackCounts } from "@equicordplugins/channelTabs/util";
 import { ActivityIcon, CircleQuestionIcon, DiscoveryIcon, EnvelopeIcon, FriendsIcon, ICYMIIcon, NitroIcon, QuestIcon, ShopIcon } from "@equicordplugins/channelTabs/util/icons";
-import { activeQuestIntervals } from "@equicordplugins/questify"; // sorry murphy!
+import { getActiveAutoCompletes } from "@equicordplugins/questify/utils/completion";
 import { classNameFactory } from "@utils/css";
 import { getGuildAcronym, getIntlMessage, getUniqueUsername } from "@utils/discord";
 import { classes } from "@utils/misc";
 import { Channel, Guild, User } from "@vencord/discord-types";
 import { findComponentByCodeLazy, findCssClassesLazy } from "@webpack";
-import { Avatar, ChannelStore, ContextMenuApi, GuildStore, PresenceStore, ReadStateStore, ThemeStore, TypingStore, useDrag, useDrop, useEffect, useRef, UserStore, useState, useStateFromStores } from "@webpack/common";
+import { ActiveJoinedThreadsStore, Avatar, ChannelStore, ContextMenuApi, GuildStore, PresenceStore, ReadStateStore, TypingStore, useDrag, useDrop, useEffect, useRef, UserStore, useState, useStateFromStores } from "@webpack/common";
 import { JSX } from "react";
 
 import { TabContextMenu } from "./ContextMenus";
@@ -75,19 +75,29 @@ function TypingIndicator({ isTyping }: { isTyping: boolean; }) {
         : null;
 }
 
+function getChannelUnreadState(channelId: string) {
+    const channel = ChannelStore.getChannel(channelId);
+    const newForumPostCount = channel?.guild_id && channel.isForumLikeChannel?.()
+        ? ActiveJoinedThreadsStore.getNewThreadCount(channel.guild_id, channel.id)
+        : 0;
+    const unreadCount = ReadStateStore.getUnreadCount(channelId) || newForumPostCount;
+
+    return {
+        channelId,
+        hasUnread: ReadStateStore.hasUnread(channelId) || newForumPostCount > 0,
+        mentionCount: ReadStateStore.getMentionCount(channelId),
+        unreadCount
+    };
+}
+
 export const NotificationDot = ({ channelIds }: { channelIds: string[]; }) => {
     const userId = UserStore.getCurrentUser()?.id;
     const { persistUnreadCountFallback } = settings.use(["persistUnreadCountFallback"]);
     const [, forceUpdate] = useState(0);
     const channelStateKey = channelIds.join(",");
     const channelStates = useStateFromStores(
-        [ReadStateStore],
-        () => channelIds.map(channelId => ({
-            channelId,
-            hasUnread: ReadStateStore.hasUnread(channelId),
-            mentionCount: ReadStateStore.getMentionCount(channelId),
-            unreadCount: ReadStateStore.getUnreadCount(channelId)
-        }))
+        [ActiveJoinedThreadsStore, ReadStateStore],
+        () => channelIds.map(getChannelUnreadState)
     );
     const stateSignature = channelStates.map(state => `${state.channelId}:${Number(state.hasUnread)}:${state.mentionCount}:${state.unreadCount}`).join("|");
     const { badgeText, hasMention, shouldShow } = getNotificationDotState(
@@ -457,23 +467,19 @@ export default function ChannelTab(props: ChannelTabsProps & { index: number; })
     }), []);
     drag(drop(ref));
 
-    // check if quests running (questify momentLet)
-    const hasActiveQuests = activeQuestIntervals.size > 0;
-    console.log(ThemeStore.theme);
+    const hasActiveQuests = getActiveAutoCompletes().length > 0;
     return <div
-        className={cl("tab",
-            ThemeStore.theme === "light" ? "light-theme" : "dark-theme",
-            {
-                "tab-compact": compact,
-                "tab-selected": isTabSelected(id),
-                "tab-entering": isEntering,
-                "tab-closing": isClosing,
-                "tab-dragging": isDragging,
-                "tab-drop-target": isDropTarget,
-                "tab-nitro": channelId === "__nitro__",
-                "tab-quests-active": channelId === "__quests__" && hasActiveQuests,
-                wider: settings.store.widerTabsAndBookmarks
-            })}
+        className={cl("tab", {
+            "tab-compact": compact,
+            "tab-selected": isTabSelected(id),
+            "tab-entering": isEntering,
+            "tab-closing": isClosing,
+            "tab-dragging": isDragging,
+            "tab-drop-target": isDropTarget,
+            "tab-nitro": channelId === "__nitro__",
+            "tab-quests-active": channelId === "__quests__" && hasActiveQuests,
+            wider: settings.store.widerTabsAndBookmarks
+        })}
         key={index}
         ref={ref}
         onMouseEnter={() => setIsHovered(true)}

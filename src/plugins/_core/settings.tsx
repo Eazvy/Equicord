@@ -107,20 +107,13 @@ const settings = definePluginSettings({
             { label: "Below Activity Settings", value: "belowActivity" },
             { label: "At the very bottom", value: "bottom" },
         ] as { label: string; value: SettingsLocation; default?: boolean; }[]
+    },
+    includeVencordInfoWhenCopying: {
+        type: OptionType.BOOLEAN,
+        description: "Also copy Vencord info (Vencord, Electron, Chromium) when clicking the version info in the bottom left area of the Settings page",
+        default: true
     }
 });
-
-const settingsSectionMap: [string, string][] = [
-    ["EquicordSettings", "equicord_main_panel"],
-    ["EquicordPlugins", "equicord_plugins_panel"],
-    ["EquicordThemes", "equicord_themes_panel"],
-    ["EquicordUpdater", "equicord_updater_panel"],
-    ["EquicordChangelog", "equicord_changelog_panel"],
-    ["EquicordCloud", "equicord_cloud_panel"],
-    ["EquicordBackupAndRestore", "equicord_backup_restore_panel"],
-    ["EquicordPatchHelper", "equicord_patch_helper_panel"],
-    ["EquibopSettings", "equicord_equibop_settings_panel"],
-];
 
 export default definePlugin({
     name: "Settings",
@@ -129,7 +122,6 @@ export default definePlugin({
     required: true,
 
     settings,
-    settingsSectionMap,
 
     patches: [
         {
@@ -140,7 +132,7 @@ export default definePlugin({
                     replace: "$&.replace(/^./, c => c.toUpperCase())"
                 },
                 {
-                    match: /"text-xxs\/normal".{0,300}?(?=null!=(\i)&&(.{0,20}\i\.Text.{0,200}?,children:).{0,15}?("span"),({className:\i\.\i,children:\["Build Override: ",\1\.id\]\})\)\}\))/,
+                    match: /"text-xxs\/normal".{0,300}?(?=null!=(\i)&&(.{0,20}\i\.\i.{0,200}?,children:).{0,15}?("span"),({className:\i\.\i,children:\["Build Override: ",\1\.id\]\})\)\}\))/,
                     replace: (m, _buildOverride, makeRow, component, props) => {
                         props = props.replace(/children:\[.+\]/, "");
                         return `${m},$self.makeInfoElements(${component},${props}).map(e=>${makeRow}e})),`;
@@ -187,10 +179,6 @@ export default definePlugin({
             icon: () => <Icon width={20} height={20} />,
             buildLayout: () => [panel]
         });
-    },
-
-    getSettingsSectionMappings() {
-        return settingsSectionMap;
     },
 
     buildLayout(originalLayoutBuilder: SettingsLayoutBuilder) {
@@ -271,7 +259,7 @@ export default definePlugin({
             belowNitro: "billing_section",
             aboveActivity: "activity_section",
             belowActivity: "activity_section",
-            bottom: "logout_section"
+            bottom: "utility_section"
         };
 
         const key = places[settingsLocation] ?? places.top;
@@ -334,6 +322,7 @@ export default definePlugin({
     },
 
     getInfoString() {
+        if (!settings.store.includeVencordInfoWhenCopying) return "";
         return "\n" + this.getInfoRows().join("\n");
     },
 

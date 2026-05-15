@@ -70,18 +70,6 @@ export const EXTENSIONS_CATALOG: ExtensionDefinition[] = [
         keywords: ["extension", "plugin", "random", "voice", "join", "channel", "vc"]
     },
     {
-        id: HOLY_NOTES_EXTENSION_ID,
-        label: "HolyNotes",
-        description: "Control HolyNotes from the command palette.",
-        detailCategoryId: HOLY_NOTES_EXTENSION_DETAIL_CATEGORY_ID,
-        commandId: "extension-holy-notes-open",
-        commandLabel: "Open Notes",
-        commandDescription: "Open the HolyNotes notebook modal.",
-        sourcePath: "src/equicordplugins/holyNotes",
-        tags: [TAG_PLUGINS, TAG_UTILITY],
-        keywords: ["extension", "plugin", "holy", "notes", "notebook", "bookmark"]
-    },
-    {
         id: SILENT_MESSAGE_TOGGLE_EXTENSION_ID,
         label: "SilentMessageToggle",
         description: "Control SilentMessageToggle from the command palette.",
@@ -121,7 +109,6 @@ export const EXTENSIONS_CATALOG: ExtensionDefinition[] = [
 
 export const extensionDefinitionsById = new Map(EXTENSIONS_CATALOG.map(extension => [extension.id, extension]));
 
-export const EQUICORD_REPOSITORY_RAW_BASE_URL = "https://raw.githubusercontent.com/Equicord/Equicord/main";
 export const EQUICORD_REPOSITORY_BLOB_BASE_URL = "https://github.com/Equicord/Equicord/blob/main";
 
 export function normalizeRepositoryPath(path: string): string {
@@ -131,28 +118,4 @@ export function normalizeRepositoryPath(path: string): string {
 export function toRepositoryBlobUrl(path: string): string {
     const normalizedPath = normalizeRepositoryPath(path);
     return `${EQUICORD_REPOSITORY_BLOB_BASE_URL}/${normalizedPath}`;
-}
-
-export function toRepositoryRawUrl(path: string): string {
-    const normalizedPath = normalizeRepositoryPath(path);
-    return `${EQUICORD_REPOSITORY_RAW_BASE_URL}/${normalizedPath}`;
-}
-
-export function getExtensionReadmePaths(extension: ExtensionDefinition): string[] {
-    const paths: string[] = [];
-    const addPath = (path: string | undefined) => {
-        if (!path) return;
-        const normalizedPath = normalizeRepositoryPath(path);
-        if (!normalizedPath) return;
-        if (paths.includes(normalizedPath)) return;
-        paths.push(normalizedPath);
-    };
-
-    addPath(extension.readmePath);
-    if (extension.sourcePath) {
-        addPath(`${extension.sourcePath}/README.md`);
-        addPath(`${extension.sourcePath}/readme.md`);
-    }
-
-    return paths;
 }
